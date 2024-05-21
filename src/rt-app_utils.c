@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -374,7 +374,10 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 		if (n > -1 && n < size) {
 			ret = write(mark_fd, tmp, n);
 			free(tmp);
-			if (ret < 0) {
+			if (ret == EBADF) {
+				/* Do nothing, tracing is not currently enabled
+				 */
+			} else if (ret < 0) {
 				log_error("Cannot write mark_fd: %s\n",
 						strerror(errno));
 				exit(EXIT_FAILURE);

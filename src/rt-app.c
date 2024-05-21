@@ -1540,21 +1540,6 @@ int main(int argc, char* argv[])
 	/* If using ftrace, open trace and marker fds */
 	if (ftrace_level != FTRACE_NONE) {
 		log_notice("configuring ftrace");
-		// check if tracing is enabled
-		strcpy(tmp, opts.ftracedir);
-		strcat(tmp, "/tracing_on");
-		int ftrace_f = open(tmp, O_RDONLY);
-		if (ftrace_f < 0){
-			log_error("Cannot open tracing_on file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-		char trace_val[10];
-		int ret = read(ftrace_f, trace_val, 10);
-		if ( ret < 0 || trace_val[0] != '1'){
-			log_error("tracing is not enabled in file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-		close(ftrace_f);
 		// set the marker
 		strcpy(tmp, opts.ftracedir);
 		strcat(tmp, "/trace_marker");
