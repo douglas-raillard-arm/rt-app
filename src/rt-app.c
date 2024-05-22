@@ -246,7 +246,7 @@ int do_calibrate_cpu_cycles(int clock, bool cool_down)
 {
 	struct timespec start, stop, sleep;
 	int max_load_loop = 10000;
-	size_t sample_size = 200;
+	size_t sample_size = cool_down ? 10 : 200;
 	double sum = 0;
 	int64_t diff = 0;
 
