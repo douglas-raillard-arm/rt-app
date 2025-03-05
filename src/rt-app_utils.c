@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
+#include <mntent.h>
 
 #include "rt-app_utils.h"
 
@@ -267,6 +268,60 @@ resource_to_string(resource_t resource, char *resource_name)
 	return 0;
 }
 
+/* point directly to the tracing directory */
+#define DEFAULT_FTRACE_DIR "/sys/kernel/debug/tracing"
+
+char *mtab_by_type(const char *type, int typelen)
+{
+	FILE *fd_mntent;
+
+	fd_mntent = setmntent("/etc/mtab", "r");
+	if(fd_mntent)
+	{
+		struct mntent *mntent;
+
+		while(mntent = getmntent(fd_mntent), mntent)
+		{
+			log_debug("mntent->dir=%s type=%s", mntent->mnt_dir, mntent->mnt_type);
+			if(!strncmp(type, mntent->mnt_type, typelen))
+			{
+				char *path = strdup(mntent->mnt_dir);
+				endmntent(fd_mntent);
+				return path;
+			}
+		}
+		endmntent(fd_mntent);
+	}
+	return NULL;
+}
+
+char *ftrace_dir(void)
+{
+	char *path;
+
+	/* tracefs paths point directly to the tracing directory */
+	path = mtab_by_type("tracefs", sizeof("tracefs")-1);
+	if(path)
+		return path;
+
+	/* debugfs paths point one level above the tracing directory */
+	path = mtab_by_type("debugfs", sizeof("debugfs")-1);
+	if(path)
+	{
+		char *tmp;
+		int len = strlen(path) + sizeof("/tracing");
+		tmp = malloc(len);
+		if(!tmp)
+			return NULL;
+		strcpy(tmp, path);
+		free(path);
+		strcat(tmp, "/tracing");
+		return tmp;
+	}
+
+	return strdup(DEFAULT_FTRACE_DIR);
+}
+
 int ftrace_setup(char *categories)
 {
 	char *cat = strtok(categories, ",");
@@ -319,7 +374,10 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 		if (n > -1 && n < size) {
 			ret = write(mark_fd, tmp, n);
 			free(tmp);
-			if (ret < 0) {
+			if (ret == EBADF) {
+				/* Do nothing, tracing is not currently enabled
+				 */
+			} else if (ret < 0) {
 				log_error("Cannot write mark_fd: %s\n",
 						strerror(errno));
 				exit(EXIT_FAILURE);
